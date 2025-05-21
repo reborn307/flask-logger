@@ -39,3 +39,12 @@ def log_data():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+from flask import send_file
+
+@app.route("/download", methods=["GET"])
+def download_file():
+    if os.path.exists(CSV_FILE):
+        return send_file(CSV_FILE, as_attachment=True)
+    else:
+        return jsonify({"status": "error", "message": "CSV file not found"}), 404
