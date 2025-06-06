@@ -11,7 +11,7 @@ CSV_FILE = "data_log.csv"
 
 # Initialize Firebase Admin SDK
 if not firebase_admin._apps:
-    cred = credentials.Certificate("serviceAccountKey.json")  # Make sure this file is in your root directory
+cred = credentials.Certificate(r"C:\Users\tolul\Downloads\road-anomaly-9eec5-firebase-adminsdk-fbsvc-1fbc6dac2b.json") # Make sure this file is in your root directory
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
