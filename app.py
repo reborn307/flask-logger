@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_file
 import csv
 import os
+import json
 from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -11,7 +12,9 @@ CSV_FILE = "data_log.csv"
 
 # Initialize Firebase Admin SDK
 if not firebase_admin._apps:
-cred = credentials.Certificate(r"C:\Users\tolul\Downloads\road-anomaly-9eec5-firebase-adminsdk-fbsvc-1fbc6dac2b.json") # Make sure this file is in your root directory
+    firebase_json = os.environ.get("FIREBASE_CREDENTIALS")
+    cred_dict = json.loads(firebase_json)
+    cred = credentials.Certificate(cred_dict)
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
