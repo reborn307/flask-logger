@@ -31,51 +31,61 @@ if not os.path.exists(CSV_FILE):
 
 @app.route("/", methods=["POST"])
 def log_data():
-    raw_data = request.form.get("data")
-
-    if not raw_data:
-        return jsonify({"status": "error", "message": "No data provided"}), 400
-
     try:
-        fields = raw_data.strip().split(",")
-        if len(fields) != 10:
-            return jsonify({"status": "error", "message": "Invalid data format"}), 400
+        data = request.get_json()
 
-        # Extract values
-        device_id = fields[0].strip()
-        batch_id = fields[1].strip().replace("Batch", "batch_")  # Normalize batch ID
-        data_index = fields[2].strip().zfill(3)  # e.g., "001"
-        accX, accY, accZ = map(float, fields[3:6])
-        temperature = float(fields[6])
-        latitude = None if fields[7] == "N/A" else float(fields[7])
-        longitude = None if fields[8] == "N/A" else float(fields[8])
-        timestamp = fields[9].strip()
+        if not data:
+            return jsonify({"error": "No JSON body"}), 400
 
-        # Save to CSV
-        with open(CSV_FILE, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow([device_id, batch_id, data_index, accX, accY, accZ, temperature, latitude, longitude, timestamp])
+        device_id = data["device_id"]
+        batch_id = data["batch_id"]
+        samples = data["samples"]
 
-        # Save to Firestore
         doc_ref = db.collection("drive_tests").document(device_id)
-        batch_ref = doc_ref.collection(batch_id).document(data_index)
 
-        payload = {
-            "accX": accX,
-            "accY": accY,
-            "accZ": accZ,
-            "temperature": temperature,
-            "latitude": latitude if latitude is not None else "N/A",
-            "longitude": longitude if longitude is not None else "N/A",
-            "timestamp": timestamp
-        }
+        for sample in samples:
+            index = str(sample["index"]).zfill(3)
 
-        batch_ref.set(payload)
+            payload = {
+                "accX": sample["accX"],
+                "accY": sample["accY"],
+                "accZ": sample["accZ"],
+                "gyrX": sample["gyrX"],
+                "gyrY": sample["gyrY"],
+                "gyrZ": sample["gyrZ"],
+                "temperature": sample["temperature"],
+                "latitude": sample["latitude"] if sample["latitude"] != 0 else "N/A",
+                "longitude": sample["longitude"] if sample["longitude"] != 0 else "N/A",
+                "timestamp": sample["timestamp"]
+            }
 
-        return jsonify({"status": "success", "message": "Data logged and uploaded to Firestore"})
+            # Firestore path:
+            # drive_tests / SRAS01 / batch_xx.xx / 001
+            doc_ref.collection(batch_id).document(index).set(payload)
+
+            # CSV logging (optional, still works)
+            with open(CSV_FILE, mode='a', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([
+                    device_id,
+                    batch_id,
+                    index,
+                    payload["accX"],
+                    payload["accY"],
+                    payload["accZ"],
+                    payload["temperature"],
+                    payload["latitude"],
+                    payload["longitude"],
+                    payload["timestamp"]
+                ])
+
+        return jsonify({
+            "status": "success",
+            "samples_uploaded": len(samples)
+        })
 
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/download", methods=["GET"])
 def download_file():
@@ -99,3 +109,4 @@ def read_data():
         return jsonify({"status": "success", "data": data_list})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
